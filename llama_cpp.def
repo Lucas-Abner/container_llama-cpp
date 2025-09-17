@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: nvidia/cuda:13.0.1-cudnn-devel-ubuntu22.04
+
+%post
+    # Atualiza pacotes e instala utilitários básicos
+    apt-get update && apt-get install -y \
+        git wget curl cmake vim build-essential \
+        libcurl4-openssl-dev \
+        && apt-get clean
+
+    # Adiciona o stub da libcuda para o build
+    echo "/usr/local/cuda/lib64/stubs" >> /etc/ld.so.conf.d/cuda-stubs.conf
+    ldconfig
+
+    cd /
+    git clone https://github.com/ggml-org/llama.cpp 
+    cd ./llama.cpp
+    cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES="86;89"
+    cmake --build build --config Release -j 10
+    cp ./build/bin/llama-server /usr/local/bin
+    chmod +x /usr/local/bin/llama-server
+
+    # Remove o stub após o build
+    rm /etc/ld.so.conf.d/cuda-stubs.conf
+    ldconfig
+
+%environment
+    export PATH=/usr/local/bin:$PATH
+
+%labels
+    Author Lucas
+    Description "Imagem Singularity do llama.cpp com suporte a CUDA"
+
+%runscript
+    echo "Executando llama.cpp..."
+    exec "$@"
